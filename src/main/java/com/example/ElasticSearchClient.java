@@ -44,11 +44,6 @@ public class ElasticSearchClient {
 
     public ElasticSearchClient(String serverUrl, String apiKey) {
         try {
-            // Wait for cluster to be ready
-            int maxRetries = 5;
-            int retryCount = 0;
-            long initialWaitTime = 2000; // 2 seconds
-
             SSLContext sslContext = SSLContextBuilder.create()
                     .loadTrustMaterial((TrustStrategy) (X509Certificate[] chain, String authType) -> true)
                     .build();
@@ -58,11 +53,7 @@ public class ElasticSearchClient {
                             new BasicHeader("Authorization", "ApiKey " + apiKey)
                     })
                     .setHttpClientConfigCallback(httpClientBuilder -> 
-                            httpClientBuilder.setSSLContext(sslContext))
-                    .setRequestConfigCallback(requestConfigBuilder -> 
-                            requestConfigBuilder
-                                .setConnectTimeout(5000)
-                                .setSocketTimeout(60000));
+                            httpClientBuilder.setSSLContext(sslContext));
 
             ObjectMapper objectMapper = new ObjectMapper()
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -74,28 +65,10 @@ public class ElasticSearchClient {
                     new JacksonJsonpMapper(objectMapper));
 
             this.esClient = new ElasticsearchClient(transport);
-            
-            // Wait for cluster to be ready with exponential backoff
-            while (retryCount < maxRetries) {
-                try {
-                    // Try to ping the cluster
-                    boolean isAvailable = this.esClient.ping().value();
-                    if (isAvailable) {
-                        break;
-                    }
-                } catch (Exception e) {
-                    retryCount++;
-                    if (retryCount >= maxRetries) {
-                        throw new RuntimeException("Failed to connect to Elasticsearch after " + maxRetries + " attempts", e);
-                    }
-                    Thread.sleep(initialWaitTime * (long) Math.pow(2, retryCount));
-                }
-            }
-
             this.kafkaProducer = new KafkaLogProducer("localhost:9092", "logs-topic");
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize Elasticsearch client: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize Elasticsearch client", e);
         }
     }
 

@@ -570,3 +570,129 @@
   padding: 30px;
   margin-bottom: 20px;
 }
+
+.filter-section {
+    -fx-background-color: -fx-card-background;
+    -fx-background-radius: 12;
+    -fx-padding: 20;
+    -fx-spacing: 15;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.1), 10, 0, 0, 2);
+    -fx-margin-bottom: 20;
+}
+
+.section-header {
+    -fx-font-size: 16;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2c3e50;
+}
+
+.filter-combo {
+    -fx-min-width: 150;
+    -fx-pref-width: 150;
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(0, 0, 0, 0.1);
+    -fx-border-radius: 8;
+    -fx-padding: 8;
+}
+
+.filter-value {
+    -fx-pref-height: 35;
+    -fx-background-color: white;
+    -fx-border-color: rgba(0, 0, 0, 0.1);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 8;
+}
+
+.add-filter-btn {
+    -fx-background-color: -fx-success;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-min-width: 30;
+    -fx-min-height: 30;
+    -fx-background-radius: 15;
+}
+
+.add-filter-btn:hover {
+    -fx-background-color: derive(-fx-success, -10%);
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 8, 0, 0, 2);
+}
+
+.reset-btn {
+    -fx-background-color: -fx-background;
+    -fx-text-fill: #6c757d;
+    -fx-border-color: rgba(0, 0, 0, 0.1);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 8 16;
+}
+
+.reset-btn:hover {
+    -fx-background-color: derive(-fx-background, -5%);
+}
+
+.apply-btn {
+    -fx-background-color: -fx-primary;
+    -fx-text-fill: white;
+    -fx-background-radius: 8;
+    -fx-padding: 8 16;
+}
+
+.apply-btn:hover {
+    -fx-background-color: derive(-fx-primary, -10%);
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.2), 8, 0, 0, 2);
+}
+
+/* Log Level Checkboxes */
+.check-box {
+    -fx-padding: 5 10;
+}
+
+.check-box .box {
+    -fx-background-color: white;
+    -fx-border-color: rgba(0, 0, 0, 0.1);
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: white;
+}
+
+.check-box:selected .box {
+    -fx-background-color: -fx-primary;
+    -fx-border-color: -fx-primary;
+}
+
+/* Time Range Controls */
+.date-picker {
+    -fx-pref-width: 150;
+}
+
+.date-picker .text-field {
+    -fx-background-color: white;
+    -fx-border-color: rgba(0, 0, 0, 0.1);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 8;
+}
+
+.time-field {
+    -fx-pref-width: 100;
+    -fx-background-color: white;
+    -fx-border-color: rgba(0, 0, 0, 0.1);
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 8;
+}
+
+/* Source Controls */
+.source-combo {
+    -fx-min-width: 200;
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: rgba(0, 0, 0, 0.1);
+    -fx-border-radius: 8;
+    -fx-padding: 8;
+}

@@ -12,8 +12,10 @@ import javafx.scene.control.Label;
 public class MainApplication extends Application {
     private Parent logVisRoot;
     private Parent analyticsRoot;
+    private Parent filterRoot;
     private LogVisController logVisController;
     private LogAnalyticsController analyticsController;
+    private FilterController filterController;
     private StackPane mainContainer;
     
     private static MainApplication instance;
@@ -36,6 +38,11 @@ public class MainApplication extends Application {
         FXMLLoader analyticsLoader = new FXMLLoader(getClass().getResource("/logAnalytics.fxml"));
         analyticsRoot = analyticsLoader.load();
         analyticsController = analyticsLoader.getController();
+
+        // Load Filter view
+        FXMLLoader filterLoader = new FXMLLoader(getClass().getResource("/filter.fxml"));
+        filterRoot = filterLoader.load();
+        filterController = filterLoader.getController();
         
         // Connect the controllers
         logVisController.setAnalyticsController(analyticsController);
@@ -72,6 +79,7 @@ public class MainApplication extends Application {
         // Get navbar items from LogVisController
         Label dashboardLabel = logVisController.getDashboardLabel();
         Label logsLabel = logVisController.getLogsLabel();
+        Label filterLabel = logVisController.getFilterLabel();
         
         // Add click handlers
         dashboardLabel.setOnMouseClicked(event -> {
@@ -84,6 +92,7 @@ public class MainApplication extends Application {
             // Update active states
             dashboardLabel.getStyleClass().add("nav-item-active");
             logsLabel.getStyleClass().remove("nav-item-active");
+            filterLabel.getStyleClass().remove("nav-item-active");
         });
         
         logsLabel.setOnMouseClicked(event -> {
@@ -96,6 +105,20 @@ public class MainApplication extends Application {
             // Update active states
             logsLabel.getStyleClass().add("nav-item-active");
             dashboardLabel.getStyleClass().remove("nav-item-active");
+            filterLabel.getStyleClass().remove("nav-item-active");
+        });
+
+        filterLabel.setOnMouseClicked(event -> {
+            try {
+                setRoot("filter");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            
+            // Update active states
+            filterLabel.getStyleClass().add("nav-item-active");
+            dashboardLabel.getStyleClass().remove("nav-item-active");
+            logsLabel.getStyleClass().remove("nav-item-active");
         });
     }
 
@@ -112,6 +135,9 @@ public class MainApplication extends Application {
                 break;
             case "logAnalytics":
                 instance.mainContainer.getChildren().add(instance.analyticsRoot);
+                break;
+            case "filter":
+                instance.mainContainer.getChildren().add(instance.filterRoot);
                 break;
             default:
                 throw new IllegalArgumentException("Unknown view: " + viewName);

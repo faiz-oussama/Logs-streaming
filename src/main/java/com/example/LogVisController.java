@@ -41,6 +41,8 @@ public class LogVisController {
     @FXML
     private Label logsLabel;
     @FXML
+    private Label filterLabel;
+    @FXML
     private TableView<LogEntry> logsTable;
     @FXML
     private TableColumn<LogEntry, String> columnIP;
@@ -253,5 +255,9 @@ public class LogVisController {
 
     public Label getLogsLabel() {
         return logsLabel;
+    }
+
+    public Label getFilterLabel() {
+        return filterLabel;
     }
 }
