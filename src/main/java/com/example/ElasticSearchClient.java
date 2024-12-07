@@ -44,6 +44,11 @@ public class ElasticSearchClient {
 
     public ElasticSearchClient(String serverUrl, String apiKey) {
         try {
+            // Wait for cluster to be ready
+            int maxRetries = 5;
+            int retryCount = 0;
+            long initialWaitTime = 2000; // 2 seconds
+
             SSLContext sslContext = SSLContextBuilder.create()
                     .loadTrustMaterial((TrustStrategy) (X509Certificate[] chain, String authType) -> true)
                     .build();
@@ -53,7 +58,11 @@ public class ElasticSearchClient {
                             new BasicHeader("Authorization", "ApiKey " + apiKey)
                     })
                     .setHttpClientConfigCallback(httpClientBuilder -> 
-                            httpClientBuilder.setSSLContext(sslContext));
+                            httpClientBuilder.setSSLContext(sslContext))
+                    .setRequestConfigCallback(requestConfigBuilder -> 
+                            requestConfigBuilder
+                                .setConnectTimeout(5000)
+                                .setSocketTimeout(60000));
 
             ObjectMapper objectMapper = new ObjectMapper()
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -65,10 +74,28 @@ public class ElasticSearchClient {
                     new JacksonJsonpMapper(objectMapper));
 
             this.esClient = new ElasticsearchClient(transport);
+            
+            // Wait for cluster to be ready with exponential backoff
+            while (retryCount < maxRetries) {
+                try {
+                    // Try to ping the cluster
+                    boolean isAvailable = this.esClient.ping().value();
+                    if (isAvailable) {
+                        break;
+                    }
+                } catch (Exception e) {
+                    retryCount++;
+                    if (retryCount >= maxRetries) {
+                        throw new RuntimeException("Failed to connect to Elasticsearch after " + maxRetries + " attempts", e);
+                    }
+                    Thread.sleep(initialWaitTime * (long) Math.pow(2, retryCount));
+                }
+            }
+
             this.kafkaProducer = new KafkaLogProducer("localhost:9092", "logs-topic");
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to initialize Elasticsearch client", e);
+            throw new RuntimeException("Failed to initialize Elasticsearch client: " + e.getMessage(), e);
         }
     }
 
@@ -149,30 +176,45 @@ public class ElasticSearchClient {
     public List<LogEntry> fetchLogs(String index) {
         List<LogEntry> logs = new ArrayList<>();
         AtomicInteger from = new AtomicInteger(0);
+        int maxRetries = 3;
+        int retryCount = 0;
 
-        try {
-            boolean hasMoreResults = true;
-            while (hasMoreResults) {    
-                SearchResponse<LogEntry> response = esClient.search(s -> s
-                        .index(index)
-                        .from(from.get())
-                        .size(BATCH_SIZE)
-                        .query(q -> q
-                                .matchAll(m -> m)
-                        ), LogEntry.class);
+        while (retryCount < maxRetries) {
+            try {
+                boolean hasMoreResults = true;
+                while (hasMoreResults) {    
+                    SearchResponse<LogEntry> response = esClient.search(s -> s
+                            .index(index)
+                            .from(from.get())
+                            .size(BATCH_SIZE)
+                            .query(q -> q
+                                    .matchAll(m -> m)
+                            ), LogEntry.class);
 
-                List<Hit<LogEntry>> hits = response.hits().hits();
-                if (hits.isEmpty()) {
-                    hasMoreResults = false;
-                } else {
-                    for (Hit<LogEntry> hit : hits) {
-                        logs.add(hit.source());
+                    List<Hit<LogEntry>> hits = response.hits().hits();
+                    if (hits.isEmpty()) {
+                        hasMoreResults = false;
+                    } else {
+                        for (Hit<LogEntry> hit : hits) {
+                            logs.add(hit.source());
+                        }
+                        from.addAndGet(BATCH_SIZE);
                     }
-                    from.addAndGet(BATCH_SIZE);
+                }
+                return logs; // Success, return the logs
+            } catch (IOException e) {
+                retryCount++;
+                if (retryCount >= maxRetries) {
+                    throw new RuntimeException("Failed to fetch logs after " + maxRetries + " attempts. Last error: " + e.getMessage(), e);
+                }
+                // Wait before retrying, with exponential backoff
+                try {
+                    Thread.sleep((long) Math.pow(2, retryCount) * 1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting to retry", ie);
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
         return logs;
     }

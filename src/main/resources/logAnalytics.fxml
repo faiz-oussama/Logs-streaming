@@ -106,15 +106,21 @@
                 </HBox>
 
                 <!-- Top Endpoints Table -->
-                <VBox>
-                    <Label text="Top Accessed Endpoints" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
-                    <TableView fx:id="endpointsTable" prefHeight="200">
+                <VBox spacing="10" VBox.vgrow="ALWAYS">
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Label text="Top Accessed Endpoints" style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                        <Region HBox.hgrow="ALWAYS" />
+                    </HBox>
+                    <TableView fx:id="endpointsTable" VBox.vgrow="ALWAYS">
                         <columns>
-                            <TableColumn fx:id="endpointColumn" text="Endpoint" prefWidth="300"/>
-                            <TableColumn fx:id="hitsColumn" text="Hits" prefWidth="100"/>
-                            <TableColumn fx:id="avgResponseTimeColumn" text="Avg Response Time" prefWidth="150"/>
-                            <TableColumn fx:id="errorRateColumn" text="Error Rate" prefWidth="100"/>
+                            <TableColumn fx:id="endpointColumn" text="ENDPOINT" prefWidth="500"/>
+                            <TableColumn fx:id="hitsColumn" text="HITS" prefWidth="200"/>
+                            <TableColumn fx:id="avgResponseTimeColumn" text="AVG RESPONSE TIME" prefWidth="300"/>
+                            <TableColumn fx:id="errorRateColumn" text="ERROR RATE" prefWidth="200"/>
                         </columns>
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                        </columnResizePolicy>
                     </TableView>
                 </VBox>
             </VBox>
