@@ -20,10 +20,9 @@
                         <Insets left="45"/>
                     </padding>
                     <Label fx:id="dashboardLabel" text="Dashboard" styleClass="nav-item" />
-                    <Label fx:id="logsLabel" text="Logs" styleClass="nav-item, nav-item-active" />
-                    <Label fx:id="filterLabel" text="Filter" styleClass="nav-item" />
-                    <Label text="Analytics" styleClass="nav-item" />
-                    <Label text="Settings" styleClass="nav-item" />
+                    <Label fx:id="logsLabel" text="Logs" styleClass="nav-item" />
+                    <Label fx:id="filterLabel" text="Filter" styleClass="nav-item, nav-item-active" />
+                    <Label fx:id="settingsLabel" text="Settings" styleClass="nav-item" />
                 </HBox>
                 <Region HBox.hgrow="ALWAYS" />
                 <HBox alignment="CENTER" spacing="20" styleClass="nav-controls">
