@@ -1,120 +1,406 @@
-# Log Management System
+# Real-Time Log Streaming and Analytics Platform
+
+A sophisticated Java-based application that combines the power of the ELK Stack (Elasticsearch, Logstash, Filebeat) with Apache Kafka for comprehensive log management, real-time streaming, visualization, and analysis.
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [System Architecture](#system-architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Components](#components)
+- [Data Flow](#data-flow)
+- [API Reference](#api-reference)
+- [Contributing](#contributing)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Overview
-The Log Management System is a comprehensive Java-based application designed to collect, process, and visualize logs from various sources. It leverages Elasticsearch for efficient log storage and retrieval, providing a robust web interface for real-time monitoring and analysis of log data. This system is ideal for developers and system administrators who need to track application performance, troubleshoot issues, and gain insights from log data.
+
+This project implements an enterprise-grade log management and analytics platform that leverages both the ELK Stack and Apache Kafka to provide a complete solution for log processing, storage, and visualization. The system uses Filebeat to collect logs, Logstash for processing and enrichment, Elasticsearch for storage and search, and Kafka for reliable real-time streaming.
+
+### Key Capabilities
+- Automated log collection using Filebeat
+- Advanced log processing and enrichment via Logstash
+- Scalable storage and search with Elasticsearch
+- Real-time streaming through Apache Kafka
+- Dynamic filtering and search functionality
+- Interactive data visualization
+- Customizable analytics dashboard
+- High-performance data processing
+- Reliable log shipping and processing
 
 ## Features
-- **Log Collection**: Fetch logs from Elasticsearch based on specified indices, allowing for flexible querying.
-- **Real-time Monitoring**: Visualize log data using interactive charts and graphs, enabling quick insights into application behavior.
-- **WebSocket Integration**: Stream logs to the client in real-time, ensuring that users always have the latest data.
-- **Periodic Fetching**: Automatically fetch and save logs at regular intervals, reducing manual effort and ensuring data freshness.
-- **User-Friendly Interface**: A responsive web interface built with JavaFX and HTML/CSS, designed for ease of use and accessibility.
-- **Data Visualization**: Utilize ECharts for dynamic and interactive visualizations of log data, including pie charts, bar charts, and line graphs.
-- **Error Tracking**: Monitor and categorize logs based on severity levels (INFO, WARN, ERROR) for better error management.
 
-## Technologies Used
-- **Java**: The primary programming language for the application, utilizing Java 17 or higher.
-- **Elasticsearch**: A powerful search and analytics engine for storing and querying log data.
-- **JavaFX**: A framework for building rich desktop applications with a modern user interface.
-- **Jetty**: A lightweight servlet container for serving web content and handling WebSocket connections.
-- **ECharts**: A powerful charting library for data visualization in the web interface.
-- **Jackson**: A library for processing JSON data, used for serializing and deserializing log entries.
+### 1. Log Collection and Processing
+- Automated log collection with Filebeat
+- Log parsing and enrichment through Logstash
+- Full-text search capabilities via Elasticsearch
+- Real-time log ingestion using Apache Kafka
+- Configurable consumer groups for scalable processing
+- Automatic reconnection handling
+- Buffered message processing
 
-## Getting Started
+### 2. Filtering System
+- Multi-criteria filtering:
+  - Time range (custom and preset options)
+  - Log levels (ERROR, WARN, INFO, DEBUG, TRACE)
+  - Source and component filtering
+  - Advanced custom filters
+- Real-time filter application
+- Filter persistence
 
-### Prerequisites
-Before you begin, ensure you have the following installed:
-- **Java 17 or higher**: Download from [Oracle](https://www.oracle.com/java/technologies/javase-jdk17-downloads.html) or [OpenJDK](https://openjdk.java.net/install/).
-- **Maven**: A build automation tool for Java projects. Install it from [Maven's official website](https://maven.apache.org/download.cgi).
-- **Elasticsearch**: Version 8.x is required. Download and install from [Elastic's official website](https://www.elastic.co/downloads/elasticsearch).
+### 3. User Interface
+- Modern JavaFX-based UI
+- Responsive design
+- Three main views:
+  - Log Visualization
+  - Filter Interface
+  - Analytics Dashboard
+- Interactive table with sortable columns
+- Custom styling and themes
 
-### Installation
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/faiz-oussama/Distributed-Microservices-Log-Management-System
-   cd Distributed-Microservices-Log-Management-System
-   ```
+## Technology Stack
 
-2. **Build the project using Maven**:
-   ```bash
-   mvn clean install
-   ```
+### Backend
+- Java 11+
+- Apache Kafka 3.x
+- Jackson JSON Parser
+- Maven for dependency management
+- Elasticsearch 7.x
+- Logstash 7.x
+- Filebeat 7.x
+- Elasticsearch Java API Client
 
-3. **Start Elasticsearch**:
-   - Ensure Elasticsearch is running on your local machine. You can start it using the command:
-     ```bash
-     ./bin/elasticsearch
-     ```
-   - Verify that Elasticsearch is running by navigating to `http://localhost:9200` in your web browser.
+### Frontend
+- JavaFX 17
+- FXML for UI layout
+- CSS for styling
 
-4. **Run the application**:
-   ```bash
-   mvn exec:java -Dexec.mainClass="com.example.LogMonitoringApp"
-   ```
+### Development Tools
+- IDE: Any Java IDE (Eclipse, IntelliJ IDEA, VS Code)
+- Git for version control
+- Maven for build automation
 
-5. **Access the application**:
-   - Open your web browser and navigate to `http://localhost:8080` to access the Log Monitoring Dashboard.
+## System Architecture
 
-### Configuration
-- **ElasticSearchClient Configuration**:
-  - Open `ElasticSearchClient.java` and update the `serverUrl` and `apiKey` variables with your Elasticsearch server details.
-  
-- **Log File Path**:
-  - Ensure that the log file path in `LogWebSocketServer.java` points to the correct location of your `logs.json` file.
+### Components
+1. **ELK Stack Integration**
+   - **Filebeat**
+     - Monitors and ships log files
+     - Configurable input paths
+     - Handles log rotation and backpressure
+     - Ensures reliable log shipping
+
+   - **Logstash**
+     - Receives logs from Filebeat
+     - Applies filters and transformations
+     - Parses log formats
+     - Enriches data with additional fields
+     - Routes processed logs to Elasticsearch
+
+   - **Elasticsearch**
+     - Stores and indexes log data
+     - Provides full-text search capabilities
+     - Handles data retention policies
+     - Enables complex queries and aggregations
+
+   - **ElasticsearchClient**
+     - Java-based Elasticsearch integration
+     - Retrieves logs using Elasticsearch Java API
+     - Implements query builders
+     - Forwards retrieved logs to Kafka topics
+
+2. **Log Producer**
+   - Generates sample log data
+   - Implements Kafka producer
+   - Configurable message generation rate
+
+3. **Kafka Infrastructure**
+   - Topic: logs-topic
+   - Partitioning for scalability
+   - Message persistence
+   - Consumer group management
+
+4. **Log Consumer**
+   - Real-time message consumption
+   - JSON parsing and validation
+   - Object mapping to LogEntry class
+
+5. **UI Controllers**
+   - FilterController: Manages log filtering
+   - LogVisController: Handles log visualization
+   - LogAnalyticsController: Processes analytics
+
+## Prerequisites
+
+- Java Development Kit (JDK) 11 or higher
+- Apache Kafka 3.x
+- Elasticsearch 7.x
+- Logstash 7.x
+- Filebeat 7.x
+- Maven 3.6+
+- Minimum 8GB RAM (recommended for ELK stack)
+- 10GB free disk space
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/faizoussama/Logs-streaming-kafka.git
+cd Logs-streaming-kafka
+```
+
+2. Install dependencies:
+```bash
+mvn clean install
+```
+
+3. Start ELK Stack:
+```bash
+# Start Elasticsearch
+sudo systemctl start elasticsearch
+
+# Start Logstash
+sudo systemctl start logstash
+
+# Start Filebeat
+sudo systemctl start filebeat
+```
+
+4. Start Kafka:
+```bash
+# Start Zookeeper
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+# Start Kafka Server
+bin/kafka-server-start.sh config/server.properties
+```
+
+5. Run the application:
+```bash
+mvn javafx:run
+```
+
+## Configuration
+
+### Filebeat Configuration
+```yaml
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /path/to/your/logs/*.log
+  fields:
+    log_type: application
+
+output.logstash:
+  hosts: ["localhost:5044"]
+```
+
+### Logstash Configuration
+```ruby
+input {
+  beats {
+    port => 5044
+  }
+}
+
+filter {
+  grok {
+    match => { "message" => "%{COMBINEDAPACHELOG}" }
+  }
+  date {
+    match => [ "timestamp", "dd/MMM/yyyy:HH:mm:ss Z" ]
+    target => "@timestamp"
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["localhost:9200"]
+    index => "logs-%{+YYYY.MM.dd}"
+  }
+}
+```
+
+### Elasticsearch Configuration
+```yaml
+cluster.name: log-cluster
+node.name: log-node-1
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+network.host: localhost
+http.port: 9200
+```
+
+### Kafka Configuration
+```properties
+bootstrap.servers=localhost:9092
+group.id=filter-consumer-group
+key.deserializer=StringDeserializer
+value.deserializer=StringDeserializer
+auto.offset.reset=earliest
+enable.auto.commit=true
+```
+
+### Application Properties
+- Log retention period: 7 days
+- Maximum message size: 1MB
+- Consumer poll timeout: 100ms
+- UI refresh rate: 1 second
 
 ## Usage
-### Web Interface
-- **Dashboard**: The main dashboard provides an overview of log metrics, including live counts and log levels.
-- **Log Visualization**: Use the various charts to analyze log data:
-  - **Log Levels Pie Chart**: Displays the distribution of log levels (INFO, WARN, ERROR).
-  - **HTTP Methods vs Status Codes**: A bar chart comparing the success and failure rates of different HTTP methods.
-  - **Top Accessed URLs**: A bar chart showing the most frequently accessed URLs.
-  - **Error Trends**: A line chart visualizing error occurrences over time.
 
-### Filtering Logs
-- Use the date range filter to narrow down logs based on specific time frames. Input the start and end dates and click "Apply" to refresh the data.
+### Starting the Application
+1. Launch the application using Maven or your IDE
+2. The main window will open with three tabs:
+   - Logs View
+   - Filter
+   - Analytics
 
-### Real-time Log Streaming
-- The application streams logs in real-time using WebSocket connections. As new logs are generated, they will automatically appear in the dashboard.
+### Using the Filter Interface
+1. Select time range using presets or custom range
+2. Choose log levels to display
+3. Select source and component filters
+4. Add advanced filters if needed
+5. Click Apply to filter logs
+6. Use Reset to clear all filters
 
-## Project Structure
+### Log Format
+```json
+{
+  "_id": "unique_id",
+  "client_ip": "xxx.xxx.xxx.xxx",
+  "timestamp": "dd/MMM/yyyy:HH:mm:ss Z",
+  "http_method": "GET/POST/PUT/DELETE",
+  "request": "/api/endpoint",
+  "status_code": 200,
+  "response_size": "1234",
+  "log_level": "INFO",
+  "message": "Log message content"
+}
 ```
-log-management/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/
-│   │   │       └── example/
-│   │   │           ├── ElasticSearchClient.java
-│   │   │           ├── LogEntry.java
-│   │   │           ├── LogMonitoringApp.java
-│   │   │           ├── LogWebSocketServer.java
-│   │   │           ├── LocalHttpServer.java
-│   │   │           ├── EcommerceLogGenerator.java
-│   │   │           └── ...
-│   │   └── resources/
-│   │       ├── index.html
-│   │       ├── logVis.html
-│   │       ├── script.js
-│   │       ├── style.css
-│   │       └── ...
-│   └── test/
-│       └── ...
-├── pom.xml
-└── README.md
-```
+
+## Components
+
+### 1. MainApplication.java
+- Application entry point
+- Scene management
+- Navigation handling
+
+### 2. FilterController.java
+- Log filtering logic
+- Kafka consumer management
+- UI event handling
+
+### 3. LogEntry.java
+- Data model for log entries
+- JSON mapping annotations
+- Getter/setter methods
+
+### 4. KafkaLogProducer.java
+- Log generation
+- Kafka producer implementation
+- Message serialization
+
+## Data Flow
+
+1. **Log Collection**
+   - Applications generate logs
+   - Filebeat monitors and collects log files
+   - Ships logs to Logstash reliably
+
+2. **Log Processing**
+   - Logstash receives logs from Filebeat
+   - Applies filters and transformations
+   - Enriches data with additional context
+   - Forwards processed logs to Elasticsearch
+
+3. **Storage and Indexing**
+   - Elasticsearch stores and indexes logs
+   - Maintains searchable indices
+   - Handles data retention and lifecycle
+
+4. **Data Retrieval**
+   - ElasticsearchClient queries logs
+   - Uses Elasticsearch Java API
+   - Implements efficient search queries
+   - Forwards retrieved logs to Kafka
+
+5. **Data Streaming**
+   - Kafka manages message queue
+   - FilterController consumes messages
+   - Real-time processing and filtering
+
+6. **UI Updates**
+   - JavaFX Platform.runLater for thread-safe updates
+   - Observable collections for live data binding
+   - Event-driven UI updates
+
+## API Reference
+
+### Log Entry Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| id | String | Unique identifier |
+| clientIp | String | Source IP address |
+| timestamp | String | Event timestamp |
+| httpMethod | String | HTTP method |
+| request | String | Request endpoint |
+| statusCode | int | HTTP status code |
+| logLevel | String | Log severity level |
 
 ## Contributing
-Contributions are welcome! If you have suggestions for improvements or find bugs, please fork the repository and submit a pull request. Ensure that your code adheres to the project's coding standards and includes appropriate tests.
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+### Coding Standards
+- Follow Java naming conventions
+- Add JavaDoc comments
+- Write unit tests
+- Keep methods focused and small
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Kafka Connection Failed**
+   - Verify Kafka server is running
+   - Check connection properties
+   - Ensure correct topic exists
+
+2. **UI Not Updating**
+   - Check Platform.runLater usage
+   - Verify ObservableList bindings
+   - Debug event handlers
+
+3. **Memory Issues**
+   - Adjust JVM heap size
+   - Check for memory leaks
+   - Monitor garbage collection
 
 ## License
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
-- [Elasticsearch](https://www.elastic.co/) for providing a powerful search and analytics engine.
-- [JavaFX](https://openjfx.io/) for enabling rich desktop application development.
-- [ECharts](https://echarts.apache.org/) for providing a robust charting library for data visualization.
-- [Jetty](https://www.eclipse.org/jetty/) for serving web content and handling WebSocket connections.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
 
 ## Contact
-For any inquiries or support, please contact [your.email@example.com](mailto:faizouss123@gmail.com).
+
+For questions and support, please contact:
+- Email: faizouss123@gmail.com
+- GitHub Issues: [Project Issues](https://github.com/faizoussama/Logs-streaming-kafka/issues)
+
+## Acknowledgments
+
+- Apache Kafka team
+- JavaFX community
+- All contributors to this project
