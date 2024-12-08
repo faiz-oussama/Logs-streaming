@@ -1,5 +1,6 @@
 package com.example;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
@@ -8,13 +9,33 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import java.net.URL;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ResourceBundle;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.time.Duration;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Locale;
 
 public class FilterController implements Initializable {
     @FXML private ComboBox<String> timePresetCombo;
@@ -41,16 +62,29 @@ public class FilterController implements Initializable {
     @FXML private Label filterLabel;
 
     @FXML private TableView<LogEntry> filteredLogsTable;
+    private ObservableList<LogEntry> allLogs = FXCollections.observableArrayList();
+    private ObservableList<LogEntry> filteredLogs = FXCollections.observableArrayList();
+    private boolean filterActive = false;
+    
     @FXML private TableColumn<LogEntry, String> columnIP;
     @FXML private TableColumn<LogEntry, String> columnTimestamp;
     @FXML private TableColumn<LogEntry, String> columnRequestType;
     @FXML private TableColumn<LogEntry, String> columnEndpoint;
     @FXML private TableColumn<LogEntry, String> columnStatusCode;
     @FXML private TableColumn<LogEntry, String> columnResponseTime;
-    
+    @FXML private TableColumn<LogEntry, String> columnLogLevel;
+    @FXML private TableColumn<LogEntry, String> columnSource;
+    @FXML private TableColumn<LogEntry, String> columnComponent;
+    @FXML private TableColumn<LogEntry, String> columnMessage;
+    @FXML private TableColumn<LogEntry, String> columnUserId;
+    @FXML private TableColumn<LogEntry, String> columnSessionId;
+
     private List<HBox> advancedFilterRows = new ArrayList<>();
-    private ObservableList<LogEntry> logEntries = FXCollections.observableArrayList();
-    
+    private KafkaConsumer<String, String> consumer;
+    private ExecutorService executorService;
+    private volatile boolean isRunning = true;
+    private List<AdvancedFilter> advancedFilters = new ArrayList<>();
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         setupTimeControls();
@@ -58,17 +92,10 @@ public class FilterController implements Initializable {
         setupSourceControls();
         setupAdvancedFilters();
         setupButtons();
-        setupNavigation();
         setupTable();
         
-        // Add listener to timePresetCombo to handle custom range selection
-        timePresetCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            boolean isCustomRange = "Custom range".equals(newVal);
-            enableCustomTimeRange(isCustomRange);
-        });
-        
-        // Initially disable custom time range controls
-        enableCustomTimeRange(false);
+        // Start Kafka consumer immediately in the background
+        setupKafkaConsumer();
     }
     
     private void setupTimeControls() {
@@ -195,86 +222,235 @@ public class FilterController implements Initializable {
     }
     
     private void setupButtons() {
-        resetBtn.setOnAction(e -> resetFilters());
-        applyBtn.setOnAction(e -> applyFilters());
+        resetBtn.setOnAction(event -> resetFilters());
+        applyBtn.setOnAction(event -> applyFilters());
     }
     
     private void resetFilters() {
-        timePresetCombo.getSelectionModel().clearSelection();
+        timePresetCombo.setValue(null);
         startDate.setValue(null);
         endDate.setValue(null);
-        startTime.clear();
-        endTime.clear();
-        
+        startTime.setText("");
+        endTime.setText("");
         errorCheck.setSelected(false);
         warnCheck.setSelected(false);
         infoCheck.setSelected(false);
         debugCheck.setSelected(false);
         traceCheck.setSelected(false);
+        sourceCombo.setValue("All Sources");
+        componentCombo.setValue(null);
         
-        sourceCombo.getSelectionModel().clearSelection();
-        componentCombo.getSelectionModel().clearSelection();
-        
-        // Clear advanced filters except the first row
-        while (advancedFiltersContainer.getChildren().size() > 1) {
-            advancedFiltersContainer.getChildren().remove(1);
-        }
+        // Clear advanced filters
+        advancedFiltersContainer.getChildren().clear();
+        addFilterRow();
+
+        // Show all logs
+        filteredLogsTable.setItems(allLogs);
     }
-    
-    private void applyFilters() {
-        // Get the current filter values
-        LocalDate startDateValue = startDate.getValue();
-        LocalDate endDateValue = endDate.getValue();
-        String startTimeValue = startTime.getText();
-        String endTimeValue = endTime.getText();
-        
-        // Get selected log levels
-        List<String> selectedLevels = new ArrayList<>();
-        if (errorCheck.isSelected()) selectedLevels.add("ERROR");
-        if (warnCheck.isSelected()) selectedLevels.add("WARN");
-        if (infoCheck.isSelected()) selectedLevels.add("INFO");
-        if (debugCheck.isSelected()) selectedLevels.add("DEBUG");
-        if (traceCheck.isSelected()) selectedLevels.add("TRACE");
-        
-        // Get source and component
-        String selectedSource = sourceCombo.getValue();
-        String selectedComponent = componentCombo.getValue();
-        
-        // Get advanced filters
-        List<AdvancedFilter> filters = new ArrayList<>();
-        for (HBox row : advancedFilterRows) {
-            ComboBox<String> fieldCombo = (ComboBox<String>) row.getChildren().get(0);
-            ComboBox<String> operatorCombo = (ComboBox<String>) row.getChildren().get(1);
-            TextField valueField = (TextField) row.getChildren().get(2);
-            
-            if (fieldCombo.getValue() != null && operatorCombo.getValue() != null && !valueField.getText().isEmpty()) {
-                filters.add(new AdvancedFilter(
-                    fieldCombo.getValue(),
-                    operatorCombo.getValue(),
-                    valueField.getText()
-                ));
-            }
-        }
-        
-        // TODO: Apply the filters to your log data
-        System.out.println("Applying filters:");
-        System.out.println("Time range: " + startDateValue + " " + startTimeValue + " to " + endDateValue + " " + endTimeValue);
-        System.out.println("Log levels: " + selectedLevels);
-        System.out.println("Source: " + selectedSource + ", Component: " + selectedComponent);
-        System.out.println("Advanced filters: " + filters);
-    }
-    
+
     private void setupTable() {
-        // Set up the table columns
+        // Set up cell value factories for each column
         columnIP.setCellValueFactory(new PropertyValueFactory<>("ipAddress"));
         columnTimestamp.setCellValueFactory(new PropertyValueFactory<>("timestamp"));
         columnRequestType.setCellValueFactory(new PropertyValueFactory<>("requestType"));
         columnEndpoint.setCellValueFactory(new PropertyValueFactory<>("endpoint"));
         columnStatusCode.setCellValueFactory(new PropertyValueFactory<>("statusCode"));
         columnResponseTime.setCellValueFactory(new PropertyValueFactory<>("responseTime"));
+        columnLogLevel.setCellValueFactory(new PropertyValueFactory<>("logLevel"));
+        columnSource.setCellValueFactory(new PropertyValueFactory<>("source"));
+        columnComponent.setCellValueFactory(new PropertyValueFactory<>("component"));
+        columnMessage.setCellValueFactory(new PropertyValueFactory<>("message"));
+        columnUserId.setCellValueFactory(new PropertyValueFactory<>("userId"));
+        columnSessionId.setCellValueFactory(new PropertyValueFactory<>("sessionId"));
 
-        // Bind the table items
-        filteredLogsTable.setItems(logEntries);
+        // Initialize the table with the observable list
+        filteredLogsTable.setItems(allLogs);
+    }
+    
+    private void setupKafkaConsumer() {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", "localhost:9092");
+        props.put("group.id", "filter-consumer-group");
+        props.put("key.deserializer", StringDeserializer.class.getName());
+        props.put("value.deserializer", StringDeserializer.class.getName());
+        props.put("auto.offset.reset", "earliest");
+        props.put("enable.auto.commit", "true");
+        props.put("auto.commit.interval.ms", "1000");
+        props.put("max.poll.records", "500");
+        props.put("fetch.min.bytes", "1");
+        props.put("fetch.max.wait.ms", "500");
+        props.put("session.timeout.ms", "30000");
+        props.put("heartbeat.interval.ms", "3000");
+        props.put("max.partition.fetch.bytes", "1048576");
+
+        consumer = new KafkaConsumer<>(props);
+        consumer.subscribe(Collections.singletonList("logs-topic"));
+        
+        // Start the consumer thread
+        executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(this::consumeLogMessages);
+        
+        System.out.println("Filter: Kafka consumer initialized with config:");
+        props.forEach((key, value) -> System.out.println(key + " = " + value));
+    }
+
+    private void consumeLogMessages() {
+        System.out.println("Filter: Starting log consumption...");
+        while (isRunning) {
+            try {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+                if (!records.isEmpty()) {
+                    List<LogEntry> newLogs = new ArrayList<>();
+                    for (ConsumerRecord<String, String> record : records) {
+                        System.out.println("Filter: Processing message: " + record.value());
+                        LogEntry logEntry = parseLogEntry(record.value());
+                        if (logEntry != null) {
+                            newLogs.add(logEntry);
+                        }
+                    }
+                    
+                    if (!newLogs.isEmpty()) {
+                        Platform.runLater(() -> {
+                            allLogs.addAll(newLogs);
+                            // Only update the table with new logs if no filter is active
+                            if (!filterActive) {
+                                filteredLogsTable.setItems(allLogs);
+                            }
+                            System.out.println("Filter: Added " + newLogs.size() + " new logs. Total logs: " + allLogs.size());
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Filter: Error consuming messages: " + e.getMessage());
+                e.printStackTrace();
+                try {
+                    Thread.sleep(1000); // Wait before retrying
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        System.out.println("Filter: Log consumption stopped.");
+    }
+    
+    private LogEntry parseLogEntry(String logMessage) {
+        try {
+            System.out.println("Parsing log message: " + logMessage);
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(logMessage);
+            
+            String ipAddress = jsonNode.get("client_ip").asText();
+            String timestamp = jsonNode.get("timestamp").asText();
+            String requestType = jsonNode.get("http_method").asText();
+            String endpoint = jsonNode.get("request").asText();
+            String statusCode = jsonNode.get("status_code").asText();
+            String responseTime = jsonNode.get("response_size").asText() + "ms";
+            String logLevel = jsonNode.get("log_level").asText();
+            String source = deriveSource(endpoint);
+            String component = deriveComponent(endpoint);
+            String message = jsonNode.get("message").asText();
+            String userId = jsonNode.get("user_id").asText();
+            String sessionId = "N/A";  // Not provided in JSON
+
+            LogEntry entry = new LogEntry(ipAddress, timestamp, requestType, endpoint, statusCode, 
+                              responseTime, logLevel, source, component, message, userId, sessionId);
+            System.out.println("Successfully created log entry: " + entry);
+            return entry;
+        } catch (Exception e) {
+            System.err.println("Error parsing log message: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private String deriveSource(String endpoint) {
+        if (endpoint.startsWith("/api")) return "Application";
+        if (endpoint.startsWith("/usr")) return "User Service";
+        if (endpoint.startsWith("/cart")) return "Shopping Cart";
+        if (endpoint.startsWith("/checkout")) return "Checkout Service";
+        return "System";
+    }
+
+    private String deriveComponent(String endpoint) {
+        if (endpoint.contains("/api/users")) return "Frontend";
+        if (endpoint.contains("/api/orders")) return "Backend";
+        if (endpoint.contains("/api/products")) return "Backend";
+        if (endpoint.contains("/api/admin")) return "Admin";
+        if (endpoint.contains("/api/auth")) return "Authentication";
+        return "Other";
+    }
+    
+    private LocalDateTime parseTimestamp(String timestamp) {
+        try {
+            System.out.println("Raw timestamp: " + timestamp);
+            
+            // Extract the actual timestamp from the JSON-like format
+            if (timestamp.contains("\"timestamp\":")) {
+                timestamp = timestamp.split("\"timestamp\":\"")[1].split("\"")[0];
+            }
+            
+            System.out.println("Extracted timestamp: " + timestamp);
+            
+            // Remove any surrounding brackets and extra spaces
+            timestamp = timestamp.trim().replaceAll("[\\[\\]]", "");
+            
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z", Locale.ENGLISH);
+                return LocalDateTime.parse(timestamp, formatter);
+            } catch (Exception e) {
+                System.out.println("Parse error: " + e.getMessage());
+                // If timezone parsing fails, try without timezone
+                String dateTimePart = timestamp.split(" \\+")[0];
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss", Locale.ENGLISH);
+                return LocalDateTime.parse(dateTimePart, formatter);
+            }
+        } catch (Exception e) {
+            System.err.println("Error parsing timestamp: " + timestamp + " - " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    private LocalTime parseTime(String timeStr) {
+        try {
+            return LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
+        } catch (Exception e) {
+            return LocalTime.MIN;
+        }
+    }
+    
+    private String getFieldValue(LogEntry entry, String field) {
+        switch (field) {
+            case "Message": return entry.getMessage();
+            case "User ID": return entry.getUserId();
+            case "IP Address": return entry.getIpAddress();
+            case "Session ID": return entry.getSessionId();
+            default: return "";
+        }
+    }
+    
+    private boolean matchesFilter(String value, String operator, String filterValue) {
+        if (value == null) return false;
+        
+        switch (operator) {
+            case "Contains":
+                return value.toLowerCase().contains(filterValue.toLowerCase());
+            case "Equals":
+                return value.equalsIgnoreCase(filterValue);
+            case "Starts with":
+                return value.toLowerCase().startsWith(filterValue.toLowerCase());
+            case "Ends with":
+                return value.toLowerCase().endsWith(filterValue.toLowerCase());
+            case "Regex":
+                try {
+                    return value.matches(filterValue);
+                } catch (Exception e) {
+                    return false;
+                }
+            default:
+                return false;
+        }
     }
     
     private void setupNavigation() {
@@ -302,6 +478,121 @@ public class FilterController implements Initializable {
         endTime.setDisable(!enable);
     }
     
+    public void stop() {
+        isRunning = false;
+        if (consumer != null) {
+            consumer.close();
+        }
+        if (executorService != null) {
+            executorService.shutdown();
+            try {
+                if (!executorService.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+            }
+        }
+    }
+
+    @FXML
+    private void applyFilters() {
+        System.out.println("\n=== Applying Filters ===");
+        System.out.println("Start Date: " + startDate.getValue());
+        System.out.println("End Date: " + endDate.getValue());
+        System.out.println("Current logs size: " + allLogs.size());
+
+        // Mark filter as active
+        filterActive = true;
+
+        List<LogEntry> filteredData = allLogs.stream()
+            .filter(entry -> {
+                // Apply time range filter
+                if (startDate.getValue() != null || endDate.getValue() != null) {
+                    try {
+                        LocalDateTime entryTime = parseTimestamp(entry.getTimestamp());
+                        if (entryTime == null) {
+                            System.out.println("Skipping entry - couldn't parse timestamp: " + entry.getTimestamp());
+                            return false;
+                        }
+                        
+                        // Set default times if not specified
+                        LocalDateTime filterStart = startDate.getValue() != null ? 
+                            LocalDateTime.of(startDate.getValue(), LocalTime.MIN) :
+                            LocalDateTime.MIN;
+                            
+                        LocalDateTime filterEnd = endDate.getValue() != null ? 
+                            LocalDateTime.of(endDate.getValue(), LocalTime.MAX) :
+                            LocalDateTime.MAX;
+                        
+                        if (entryTime.isBefore(filterStart) || entryTime.isAfter(filterEnd)) {
+                            return false;
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error in date filtering: " + e.getMessage());
+                        return false;
+                    }
+                }
+
+                // Apply log level filters
+                String level = entry.getLogLevel().toLowerCase();
+                if ((!errorCheck.isSelected() && level.equals("error")) ||
+                    (!warnCheck.isSelected() && level.equals("warn")) ||
+                    (!infoCheck.isSelected() && level.equals("info")) ||
+                    (!debugCheck.isSelected() && level.equals("debug")) ||
+                    (!traceCheck.isSelected() && level.equals("trace"))) {
+                    return false;
+                }
+
+                // Apply source filter
+                if (sourceCombo.getValue() != null && !sourceCombo.getValue().isEmpty()) {
+                    if (!entry.getSource().equals(sourceCombo.getValue())) {
+                        return false;
+                    }
+                }
+
+                // Apply component filter
+                if (componentCombo.getValue() != null && !componentCombo.getValue().isEmpty()) {
+                    if (!entry.getComponent().equals(componentCombo.getValue())) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            .collect(Collectors.toList());
+
+        System.out.println("Filtered data size: " + filteredData.size());
+
+        // Update the filtered logs
+        Platform.runLater(() -> {
+            filteredLogs.setAll(filteredData);
+            filteredLogsTable.setItems(filteredLogs);
+        });
+    }
+
+    @FXML
+    private void clearFilters() {
+        // Reset all filters
+        startDate.setValue(null);
+        endDate.setValue(null);
+        errorCheck.setSelected(true);
+        warnCheck.setSelected(true);
+        infoCheck.setSelected(true);
+        debugCheck.setSelected(true);
+        traceCheck.setSelected(true);
+        sourceCombo.setValue(null);
+        componentCombo.setValue(null);
+        
+        // Clear filter active flag
+        filterActive = false;
+        
+        // Show all logs
+        Platform.runLater(() -> {
+            filteredLogsTable.setItems(allLogs);
+        });
+    }
+    
     // Inner class for advanced filters
     public static class AdvancedFilter {
         private String field;
@@ -327,14 +618,26 @@ public class FilterController implements Initializable {
         private String endpoint;
         private String statusCode;
         private String responseTime;
+        private String logLevel;
+        private String source;
+        private String component;
+        private String message;
+        private String userId;
+        private String sessionId;
         
-        public LogEntry(String ipAddress, String timestamp, String requestType, String endpoint, String statusCode, String responseTime) {
+        public LogEntry(String ipAddress, String timestamp, String requestType, String endpoint, String statusCode, String responseTime, String logLevel, String source, String component, String message, String userId, String sessionId) {
             this.ipAddress = ipAddress;
             this.timestamp = timestamp;
             this.requestType = requestType;
             this.endpoint = endpoint;
             this.statusCode = statusCode;
             this.responseTime = responseTime;
+            this.logLevel = logLevel;
+            this.source = source;
+            this.component = component;
+            this.message = message;
+            this.userId = userId;
+            this.sessionId = sessionId;
         }
         
         public String getIpAddress() { return ipAddress; }
@@ -343,5 +646,11 @@ public class FilterController implements Initializable {
         public String getEndpoint() { return endpoint; }
         public String getStatusCode() { return statusCode; }
         public String getResponseTime() { return responseTime; }
+        public String getLogLevel() { return logLevel; }
+        public String getSource() { return source; }
+        public String getComponent() { return component; }
+        public String getMessage() { return message; }
+        public String getUserId() { return userId; }
+        public String getSessionId() { return sessionId; }
     }
 }

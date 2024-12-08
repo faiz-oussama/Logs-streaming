@@ -103,7 +103,7 @@ public class LogVisController {
                 public void run() {
                     updateLogsTable();
                 }
-            }, 0, 500); // Update every 500ms
+            }, 0, 2000); // Update every 2 seconds instead of 500ms
         }
 
         if (elasticSearchClient == null) {
