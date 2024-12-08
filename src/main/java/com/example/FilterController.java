@@ -73,11 +73,6 @@ public class FilterController implements Initializable {
     @FXML private TableColumn<LogEntry, String> columnStatusCode;
     @FXML private TableColumn<LogEntry, String> columnResponseTime;
     @FXML private TableColumn<LogEntry, String> columnLogLevel;
-    @FXML private TableColumn<LogEntry, String> columnSource;
-    @FXML private TableColumn<LogEntry, String> columnComponent;
-    @FXML private TableColumn<LogEntry, String> columnMessage;
-    @FXML private TableColumn<LogEntry, String> columnUserId;
-    @FXML private TableColumn<LogEntry, String> columnSessionId;
 
     private List<HBox> advancedFilterRows = new ArrayList<>();
     private KafkaConsumer<String, String> consumer;
@@ -93,6 +88,7 @@ public class FilterController implements Initializable {
         setupAdvancedFilters();
         setupButtons();
         setupTable();
+        setupNavigation();  // Add navigation setup
         
         // Start Kafka consumer immediately in the background
         setupKafkaConsumer();
@@ -227,24 +223,26 @@ public class FilterController implements Initializable {
     }
     
     private void resetFilters() {
+        // Reset UI controls
         timePresetCombo.setValue(null);
         startDate.setValue(null);
         endDate.setValue(null);
         startTime.setText("");
         endTime.setText("");
-        errorCheck.setSelected(false);
-        warnCheck.setSelected(false);
-        infoCheck.setSelected(false);
-        debugCheck.setSelected(false);
-        traceCheck.setSelected(false);
-        sourceCombo.setValue("All Sources");
+        errorCheck.setSelected(true);
+        warnCheck.setSelected(true);
+        infoCheck.setSelected(true);
+        debugCheck.setSelected(true);
+        traceCheck.setSelected(true);
+        sourceCombo.setValue(null);
         componentCombo.setValue(null);
         
         // Clear advanced filters
         advancedFiltersContainer.getChildren().clear();
         addFilterRow();
 
-        // Show all logs
+        // Simply disable filtering and show all logs
+        filterActive = false;
         filteredLogsTable.setItems(allLogs);
     }
 
@@ -257,11 +255,6 @@ public class FilterController implements Initializable {
         columnStatusCode.setCellValueFactory(new PropertyValueFactory<>("statusCode"));
         columnResponseTime.setCellValueFactory(new PropertyValueFactory<>("responseTime"));
         columnLogLevel.setCellValueFactory(new PropertyValueFactory<>("logLevel"));
-        columnSource.setCellValueFactory(new PropertyValueFactory<>("source"));
-        columnComponent.setCellValueFactory(new PropertyValueFactory<>("component"));
-        columnMessage.setCellValueFactory(new PropertyValueFactory<>("message"));
-        columnUserId.setCellValueFactory(new PropertyValueFactory<>("userId"));
-        columnSessionId.setCellValueFactory(new PropertyValueFactory<>("sessionId"));
 
         // Initialize the table with the observable list
         filteredLogsTable.setItems(allLogs);
@@ -302,7 +295,6 @@ public class FilterController implements Initializable {
                 if (!records.isEmpty()) {
                     List<LogEntry> newLogs = new ArrayList<>();
                     for (ConsumerRecord<String, String> record : records) {
-                        System.out.println("Filter: Processing message: " + record.value());
                         LogEntry logEntry = parseLogEntry(record.value());
                         if (logEntry != null) {
                             newLogs.add(logEntry);
@@ -312,11 +304,9 @@ public class FilterController implements Initializable {
                     if (!newLogs.isEmpty()) {
                         Platform.runLater(() -> {
                             allLogs.addAll(newLogs);
-                            // Only update the table with new logs if no filter is active
                             if (!filterActive) {
                                 filteredLogsTable.setItems(allLogs);
                             }
-                            System.out.println("Filter: Added " + newLogs.size() + " new logs. Total logs: " + allLogs.size());
                         });
                     }
                 }
@@ -324,7 +314,7 @@ public class FilterController implements Initializable {
                 System.err.println("Filter: Error consuming messages: " + e.getMessage());
                 e.printStackTrace();
                 try {
-                    Thread.sleep(1000); // Wait before retrying
+                    Thread.sleep(1000);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
@@ -381,81 +371,10 @@ public class FilterController implements Initializable {
         return "Other";
     }
     
-    private LocalDateTime parseTimestamp(String timestamp) {
-        try {
-            System.out.println("Raw timestamp: " + timestamp);
-            
-            // Extract the actual timestamp from the JSON-like format
-            if (timestamp.contains("\"timestamp\":")) {
-                timestamp = timestamp.split("\"timestamp\":\"")[1].split("\"")[0];
-            }
-            
-            System.out.println("Extracted timestamp: " + timestamp);
-            
-            // Remove any surrounding brackets and extra spaces
-            timestamp = timestamp.trim().replaceAll("[\\[\\]]", "");
-            
-            try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z", Locale.ENGLISH);
-                return LocalDateTime.parse(timestamp, formatter);
-            } catch (Exception e) {
-                System.out.println("Parse error: " + e.getMessage());
-                // If timezone parsing fails, try without timezone
-                String dateTimePart = timestamp.split(" \\+")[0];
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss", Locale.ENGLISH);
-                return LocalDateTime.parse(dateTimePart, formatter);
-            }
-        } catch (Exception e) {
-            System.err.println("Error parsing timestamp: " + timestamp + " - " + e.getMessage());
-            e.printStackTrace();
-            return null;
-        }
-    }
-    
-    private LocalTime parseTime(String timeStr) {
-        try {
-            return LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
-        } catch (Exception e) {
-            return LocalTime.MIN;
-        }
-    }
-    
-    private String getFieldValue(LogEntry entry, String field) {
-        switch (field) {
-            case "Message": return entry.getMessage();
-            case "User ID": return entry.getUserId();
-            case "IP Address": return entry.getIpAddress();
-            case "Session ID": return entry.getSessionId();
-            default: return "";
-        }
-    }
-    
-    private boolean matchesFilter(String value, String operator, String filterValue) {
-        if (value == null) return false;
-        
-        switch (operator) {
-            case "Contains":
-                return value.toLowerCase().contains(filterValue.toLowerCase());
-            case "Equals":
-                return value.equalsIgnoreCase(filterValue);
-            case "Starts with":
-                return value.toLowerCase().startsWith(filterValue.toLowerCase());
-            case "Ends with":
-                return value.toLowerCase().endsWith(filterValue.toLowerCase());
-            case "Regex":
-                try {
-                    return value.matches(filterValue);
-                } catch (Exception e) {
-                    return false;
-                }
-            default:
-                return false;
-        }
-    }
-    
     private void setupNavigation() {
         dashboardLabel.setOnMouseClicked(event -> {
             try {
+                stop();  // Clean up resources before navigation
                 MainApplication.setRoot("logAnalytics");
             } catch (Exception e) {
                 e.printStackTrace();
@@ -464,35 +383,35 @@ public class FilterController implements Initializable {
 
         logsLabel.setOnMouseClicked(event -> {
             try {
+                stop();  // Clean up resources before navigation
                 MainApplication.setRoot("logVis");
             } catch (Exception e) {
                 e.printStackTrace();
             }
         });
     }
-    
-    public void enableCustomTimeRange(boolean enable) {
-        startDate.setDisable(!enable);
-        endDate.setDisable(!enable);
-        startTime.setDisable(!enable);
-        endTime.setDisable(!enable);
-    }
-    
+
     public void stop() {
+        System.out.println("Stopping Kafka consumer and cleaning up resources...");
         isRunning = false;
         if (consumer != null) {
-            consumer.close();
+            try {
+                consumer.close(Duration.ofSeconds(5));  // Give it 5 seconds to close gracefully
+            } catch (Exception e) {
+                System.err.println("Error closing consumer: " + e.getMessage());
+            }
         }
         if (executorService != null) {
             executorService.shutdown();
             try {
-                if (!executorService.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
+                if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
                     executorService.shutdownNow();
                 }
             } catch (InterruptedException e) {
                 executorService.shutdownNow();
             }
         }
+        System.out.println("Resources cleaned up successfully");
     }
 
     @FXML
@@ -593,6 +512,85 @@ public class FilterController implements Initializable {
         });
     }
     
+    private LocalDateTime parseTimestamp(String timestamp) {
+        try {
+            System.out.println("Raw timestamp: " + timestamp);
+            
+            // Extract the actual timestamp from the JSON-like format
+            if (timestamp.contains("\"timestamp\":")) {
+                timestamp = timestamp.split("\"timestamp\":\"")[1].split("\"")[0];
+            }
+            
+            System.out.println("Extracted timestamp: " + timestamp);
+            
+            // Remove any surrounding brackets and extra spaces
+            timestamp = timestamp.trim().replaceAll("[\\[\\]]", "");
+            
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss Z", Locale.ENGLISH);
+                return LocalDateTime.parse(timestamp, formatter);
+            } catch (Exception e) {
+                System.out.println("Parse error: " + e.getMessage());
+                // If timezone parsing fails, try without timezone
+                String dateTimePart = timestamp.split(" \\+")[0];
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MMM/yyyy:HH:mm:ss", Locale.ENGLISH);
+                return LocalDateTime.parse(dateTimePart, formatter);
+            }
+        } catch (Exception e) {
+            System.err.println("Error parsing timestamp: " + timestamp + " - " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    private LocalTime parseTime(String timeStr) {
+        try {
+            return LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
+        } catch (Exception e) {
+            return LocalTime.MIN;
+        }
+    }
+    
+    private String getFieldValue(LogEntry entry, String field) {
+        switch (field) {
+            case "Message": return entry.getMessage();
+            case "User ID": return entry.getUserId();
+            case "IP Address": return entry.getIpAddress();
+            case "Session ID": return entry.getSessionId();
+            default: return "";
+        }
+    }
+    
+    private boolean matchesFilter(String value, String operator, String filterValue) {
+        if (value == null) return false;
+        
+        switch (operator) {
+            case "Contains":
+                return value.toLowerCase().contains(filterValue.toLowerCase());
+            case "Equals":
+                return value.equalsIgnoreCase(filterValue);
+            case "Starts with":
+                return value.toLowerCase().startsWith(filterValue.toLowerCase());
+            case "Ends with":
+                return value.toLowerCase().endsWith(filterValue.toLowerCase());
+            case "Regex":
+                try {
+                    return value.matches(filterValue);
+                } catch (Exception e) {
+                    return false;
+                }
+            default:
+                return false;
+        }
+    }
+
+    public void enableCustomTimeRange(boolean enable) {
+        startDate.setDisable(!enable);
+        endDate.setDisable(!enable);
+        startTime.setDisable(!enable);
+        endTime.setDisable(!enable);
+    }
+
     // Inner class for advanced filters
     public static class AdvancedFilter {
         private String field;

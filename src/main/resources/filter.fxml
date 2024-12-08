@@ -163,15 +163,10 @@
                             <TableColumn fx:id="columnIP" text="IP Address" prefWidth="160" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
                             <TableColumn fx:id="columnTimestamp" text="Timestamp" prefWidth="210" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
                             <TableColumn fx:id="columnRequestType" text="Request Type" prefWidth="140" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
-                            <TableColumn fx:id="columnEndpoint" text="Endpoint" prefWidth="300" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
+                            <TableColumn fx:id="columnEndpoint" text="Endpoint" prefWidth="200" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
                             <TableColumn fx:id="columnStatusCode" text="Status Code" prefWidth="140" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
                             <TableColumn fx:id="columnResponseTime" text="Response Time" prefWidth="140" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
                             <TableColumn fx:id="columnLogLevel" text="Log Level" prefWidth="120" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
-                            <TableColumn fx:id="columnSource" text="Source" prefWidth="140" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
-                            <TableColumn fx:id="columnComponent" text="Component" prefWidth="160" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
-                            <TableColumn fx:id="columnMessage" text="Message" prefWidth="300" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
-                            <TableColumn fx:id="columnUserId" text="User ID" prefWidth="140" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
-                            <TableColumn fx:id="columnSessionId" text="Session ID" prefWidth="140" styleClass="table-column" style="-fx-text-fill: rgb(0, 0, 0);"/>
                         </columns>
                     </TableView>
                 </VBox>
